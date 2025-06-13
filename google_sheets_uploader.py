@@ -3,7 +3,8 @@ import os
 import re
 import time
 import sys
-
+import webbrowser
+import requests
 from google.auth.transport.requests import Request
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
@@ -11,7 +12,9 @@ from googleapiclient.errors import HttpError
 from google.oauth2.credentials import Credentials
 
 # Define the Google Sheets API scope
-SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
+SCOPES = ["https://www.googleapis.com/auth/drive.file"]
+
+
 
 def resourcePath(relativePath):
     # Get absolute path to resource, works for dev and for PyInstaller
@@ -31,30 +34,75 @@ def get_token_path():
 def get_credentials():
     creds = None
     token_path = get_token_path()
-    client_secret_path = resourcePath('credentials/client_secret.json')
 
-    # Load credentials if they exist
+    client_config = {
+        "installed": {
+            "client_id": "304904465571-0bcd8ru3v1r25vjcjo5l435bop0ql2l6.apps.googleusercontent.com",
+            "project_id": "os-awakenings-overlay-app",
+            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+            "token_uri": "https://oauth2.googleapis.com/token",
+            "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+            "client_secret": "NULL", #insert your secret here.
+            "redirect_uris": ["http://localhost"]
+        }
+    }
+
+    # Load existing token if it exists
     if os.path.exists(token_path):
         creds = Credentials.from_authorized_user_file(token_path, SCOPES)
 
-    # If credentials are invalid or don't exist, start OAuth flow
+    # If no valid creds, run the OAuth flow
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
-            flow = InstalledAppFlow.from_client_secrets_file(client_secret_path, SCOPES)
+            flow = InstalledAppFlow.from_client_config(client_config, SCOPES)
             creds = flow.run_local_server(port=0)
 
-        # Save the credentials for future use
+        # Save token for next time
         with open(token_path, 'w') as token_file:
             token_file.write(creds.to_json())
 
     return creds
 
-def initialize_sheets_service():
+
+def initialize_sheets_service(spreadsheet_id=None):
     creds = get_credentials()
+
     service = build('sheets', 'v4', credentials=creds)
+
+    if spreadsheet_id:
+        try:
+            # Try to access the spreadsheet metadata
+            metadata = service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
+            print(f"✅ Successfully accessed spreadsheet: {metadata.get('properties', {}).get('title', 'Untitled')}")
+        except HttpError as e:
+            status = e.resp.status
+            link = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/edit"
+            print(f"\n🚫 Failed to access spreadsheet: {spreadsheet_id}")
+
+            if status == 403:
+                print("🔒 Permission denied.")
+                print("👉 Make sure the Google account you used to log in with the app has access to this spreadsheet.")
+                print(f"🔗 Open the spreadsheet link and click 'Share', then add your account email:\n{link}")
+            elif status == 404:
+                print("❌ Spreadsheet not found. The ID may be incorrect or the file may have been deleted.")
+                print(f"🔗 Attempted to open:\n{link}")
+            else:
+                print(f"Unexpected error ({status}): {e}")
+
+            # Open link in browser to help the user resolve it
+            try:
+                webbrowser.open(link)
+            except Exception:
+                print("⚠️ Unable to open browser automatically. Please open the link manually.")
+
+            input("\n🔁 After you've shared access, press Enter to exit...")
+            sys.exit(1)
+
     return service
+
+
 
 def find_first_empty_row(service, spreadsheet_id, sheetstring='Sheet1'):
     try:
