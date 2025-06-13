@@ -1,3 +1,1 @@
-This folder requires...
-'client_secret.json'
-this is not included in this github repo.
+
