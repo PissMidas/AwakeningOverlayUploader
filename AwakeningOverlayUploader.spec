@@ -12,7 +12,12 @@ a = Analysis(
         *[(f, 'credentials') for f in glob.glob('credentials/*')],
         ('icon/aimi.ico', 'icon'),
         ],
-    hiddenimports=['google_auth_oauthlib', 'google.auth', 'google.oauth2'],
+        hiddenimports=[
+          'google.auth',
+          'google.oauth2',
+          'google_auth_oauthlib.flow',
+          'google.auth.transport.requests',
+      ],
     hookspath=[],
     runtime_hooks=[],
     excludes=[],
