@@ -46,6 +46,7 @@ def main():
 
     # Initialize Google Sheets uploader
     SPREADSHEET_ID, SHEET_NAME, TEST_LOG_FLAG, TEST_LOG_FILEPATH = loadfromenv()
+    print(f"Using Spreadsheet ID: '{SPREADSHEET_ID}'")
 
     #if TEST_LOG_FLAG is false, then we need to check if
     if(TEST_LOG_FLAG is False):
@@ -55,7 +56,7 @@ def main():
                 time.sleep(10)
                 os._exit(0)
 
-    google_service = initialize_sheets_service()
+    google_service = initialize_sheets_service(SPREADSHEET_ID)
 
     #observer = Observer()
     # Start log monitoring
